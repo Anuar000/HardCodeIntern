@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using OrderService.Data;
+using OrderService.Models.Profiles;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,12 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddAutoMapper(cfg => {
+    // Можно добавить конфигурацию вручную, если нужно
+    cfg.AddMaps(typeof(MappingProfile).Assembly);
+});
+
 
 var app = builder.Build();
 

@@ -1,80 +1,103 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
 using OrderService.Models;
+using OrderService.Models.DTOs;
 
-namespace OrderService.Controllers;
-
-[ApiController]
-[Route("api/[controller]/[action]")]
-public class OrderController : ControllerBase
+namespace OrderService.Controllers
 {
-    private readonly AppDbContext _appDbContext;
-
-    public OrderController(AppDbContext appDbContext)
+    [ApiController]
+    [Route("api/[controller]/[action]")]
+    public class OrderController : ControllerBase
     {
-        _appDbContext = appDbContext;
-    }
+        private readonly AppDbContext _appDbContext;
+        private readonly IMapper _mapper;
 
-    [HttpGet]
-    public ActionResult<List<Order>> GetOrders()
-    {
-        var orders = _appDbContext.Orders.ToList();
-        
-        if (orders.Count == 0)
+        public OrderController(AppDbContext appDbContext, IMapper mapper)
         {
-            return NotFound();
-        }
-        
-        return Ok(orders);
-    }
-    
-    [HttpGet("{id}")]
-    public ActionResult<List<Order>> GetOrderById(int id)
-    {
-        var order = _appDbContext.Orders.Find(id);
-
-        if (order == null)
-        {
-            return NotFound();
-        }
-        
-        return Ok(order);
-    }
-
-    [HttpPost]
-    public IActionResult CreateOrder(Order order)
-    {
-        _appDbContext.Orders.Add(order);
-        _appDbContext.SaveChanges();
-        return Ok();
-    }
-
-    [HttpPut]
-    public IActionResult UpdateOrder(Order order)
-    {
-        var orderToUpdate = _appDbContext.Orders.Find(order.Id);
-        if (orderToUpdate == null)
-        {
-            return NotFound();
-        }
-        
-        _appDbContext.Orders.Update(orderToUpdate);
-        _appDbContext.SaveChanges();
-        return Ok();
-    }
-
-    [HttpDelete]
-    public IActionResult DeleteOrder(int id)
-    {
-        var orderToDelete = _appDbContext.Orders.Find(id);
-        
-        if (orderToDelete == null)
-        {
-            return NotFound();
+            _appDbContext = appDbContext;
+            _mapper = mapper;
         }
 
-        _appDbContext.Orders.Remove(orderToDelete);
-        _appDbContext.SaveChanges();
-        return Ok();
+        // GET: api/order/getorders
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders()
+        {
+            var orders = await _appDbContext.Orders
+                .Include(o => o.Product)
+                .ToListAsync();
+
+            if (orders.Count == 0)
+                return NotFound("No orders found.");
+
+            var orderDtos = _mapper.Map<List<OrderDto>>(orders);
+            return Ok(orderDtos);
+        }
+
+        // GET: api/order/getorderbyid/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<OrderDto>> GetOrderById(int id)
+        {
+            var order = await _appDbContext.Orders
+                .Include(o => o.Product)
+                .FirstOrDefaultAsync(o => o.Id == id);
+
+            if (order == null)
+                return NotFound($"Order with id {id} not found.");
+
+            var orderDto = _mapper.Map<OrderDto>(order);
+            return Ok(orderDto);
+        }
+
+        // POST: api/order/createorder
+        [HttpPost]
+        public async Task<ActionResult<CreateOrderDto>> CreateOrder(CreateOrderDto createOrderDto)
+        {
+            // Проверяем, существует ли продукт
+            var product = await _appDbContext.Products.FindAsync(createOrderDto.ProductId);
+            if (product == null)
+                return BadRequest($"Product with id {createOrderDto.ProductId} does not exist.");
+
+            var order = _mapper.Map<Order>(createOrderDto);
+
+            await _appDbContext.Orders.AddAsync(order);
+            await _appDbContext.SaveChangesAsync();
+
+            var createdOrderDto = _mapper.Map<OrderDto>(order);
+            return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, createdOrderDto);
+        }
+
+        // PUT: api/order/updateorder
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateOrder(int id, OrderDto orderDto)
+        {
+            var existingOrder = await _appDbContext.Orders.FindAsync(id);
+            if (existingOrder == null)
+                return NotFound($"Order with id {id} not found.");
+
+            // Проверяем существование продукта
+            var product = await _appDbContext.Products.FindAsync(orderDto.ProductId);
+            if (product == null)
+                return BadRequest($"Product with id {orderDto.ProductId} does not exist.");
+
+            _mapper.Map(orderDto, existingOrder);
+            await _appDbContext.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // DELETE: api/order/deleteorder/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteOrder(int id)
+        {
+            var orderToDelete = await _appDbContext.Orders.FindAsync(id);
+            if (orderToDelete == null)
+                return NotFound($"Order with id {id} not found.");
+
+            _appDbContext.Orders.Remove(orderToDelete);
+            await _appDbContext.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }
