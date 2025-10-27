@@ -11,12 +11,12 @@ namespace OrderService.Controllers
     [Route("api/[controller]/[action]")]
     public class OrderController : ControllerBase
     {
-        private readonly AppDbContext _appDbContext;
+        private readonly AppDbContext _context;
         private readonly IMapper _mapper;
 
-        public OrderController(AppDbContext appDbContext, IMapper mapper)
+        public OrderController(AppDbContext context, IMapper mapper)
         {
-            _appDbContext = appDbContext;
+            _context = context;
             _mapper = mapper;
         }
 
@@ -24,65 +24,67 @@ namespace OrderService.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders()
         {
-            var orders = await _appDbContext.Orders
-                .Include(o => o.Product)
+            var orders = await _context.Orders
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
                 .ToListAsync();
 
-            if (orders.Count == 0)
-                return NotFound("No orders found.");
-
-            var orderDtos = _mapper.Map<List<OrderDto>>(orders);
-            return Ok(orderDtos);
+            return Ok(_mapper.Map<IEnumerable<OrderDto>>(orders));
         }
 
         // GET: api/order/getorderbyid/5
         [HttpGet("{id}")]
         public async Task<ActionResult<OrderDto>> GetOrderById(int id)
         {
-            var order = await _appDbContext.Orders
-                .Include(o => o.Product)
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
                 .FirstOrDefaultAsync(o => o.Id == id);
 
-            if (order == null)
-                return NotFound($"Order with id {id} not found.");
+            if (order == null) return NotFound();
 
-            var orderDto = _mapper.Map<OrderDto>(order);
-            return Ok(orderDto);
+            return Ok(_mapper.Map<OrderDto>(order));
         }
 
         // POST: api/order/createorder
         [HttpPost]
-        public async Task<ActionResult<CreateOrderDto>> CreateOrder(CreateOrderDto createOrderDto)
+        public async Task<ActionResult<OrderDto>> CreateOrder(CreateOrderDto orderDto)
         {
-            // Проверяем, существует ли продукт
-            var product = await _appDbContext.Products.FindAsync(createOrderDto.ProductId);
-            if (product == null)
-                return BadRequest($"Product with id {createOrderDto.ProductId} does not exist.");
+            var order = _mapper.Map<Order>(orderDto);
+            order.OrderDate = DateTime.UtcNow;
 
-            var order = _mapper.Map<Order>(createOrderDto);
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
 
-            await _appDbContext.Orders.AddAsync(order);
-            await _appDbContext.SaveChangesAsync();
-
-            var createdOrderDto = _mapper.Map<OrderDto>(order);
-            return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, createdOrderDto);
+            var result = _mapper.Map<OrderDto>(order);
+            return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, result);
         }
 
         // PUT: api/order/updateorder
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateOrder(int id, OrderDto orderDto)
+        public async Task<IActionResult> UpdateOrder(int id, CreateOrderDto createOrderDto)
         {
-            var existingOrder = await _appDbContext.Orders.FindAsync(id);
-            if (existingOrder == null)
-                return NotFound($"Order with id {id} not found.");
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                .FirstOrDefaultAsync(o => o.Id == id);
 
-            // Проверяем существование продукта
-            var product = await _appDbContext.Products.FindAsync(orderDto.ProductId);
-            if (product == null)
-                return BadRequest($"Product with id {orderDto.ProductId} does not exist.");
+            if (order == null)
+                return NotFound();
 
-            _mapper.Map(orderDto, existingOrder);
-            await _appDbContext.SaveChangesAsync();
+            // РћР±РЅРѕРІР»СЏРµРј РґР°РЅРЅС‹Рµ Р·Р°РєР°Р·Р°
+            order.CustomerName = createOrderDto.CustomerName;
+
+            // РЈРґР°Р»СЏРµРј СЃС‚Р°СЂС‹Рµ РїРѕР·РёС†РёРё
+            _context.OrderItems.RemoveRange(order.OrderItems);
+
+            // Р”РѕР±Р°РІР»СЏРµРј РЅРѕРІС‹Рµ РїРѕР·РёС†РёРё
+            order.OrderItems = createOrderDto.OrderItems.Select(i => new OrderItem
+            {
+                ProductId = i.ProductId,
+                Quantity = i.Quantity,
+            }).ToList();
+
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
@@ -91,12 +93,11 @@ namespace OrderService.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrder(int id)
         {
-            var orderToDelete = await _appDbContext.Orders.FindAsync(id);
-            if (orderToDelete == null)
-                return NotFound($"Order with id {id} not found.");
+            var order = await _context.Orders.FindAsync(id);
+            if (order == null) return NotFound();
 
-            _appDbContext.Orders.Remove(orderToDelete);
-            await _appDbContext.SaveChangesAsync();
+            _context.Orders.Remove(order);
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

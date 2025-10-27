@@ -2,10 +2,9 @@
 {
     public class OrderDto
     {
+        public int Id { get; set; }
         public string CustomerName { get; set; } = string.Empty;
-        public int ProductId { get; set; }
-        public int Quantity { get; set; }
-
-        public ProductDto Product { get; set; }
+        public DateTime OrderDate { get; set; }
+        public List<OrderItemDto> OrderItems { get; set; } = new();
     }
 }

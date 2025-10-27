@@ -11,68 +11,62 @@ namespace OrderService.Controllers
     [Route("api/[controller]/[action]")]
     public class ProductController : ControllerBase
     {
-        private readonly AppDbContext _appDbContext;
+        private readonly AppDbContext _context;
         private readonly IMapper _mapper;
 
-        public ProductController(AppDbContext appDbContext, IMapper mapper)
+        public ProductController(AppDbContext context, IMapper mapper)
         {
-            _appDbContext = appDbContext;
+            _context = context;
             _mapper = mapper;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts()
         {
-            var products = await _appDbContext.Products.ToListAsync();
-            var productDtos = _mapper.Map<List<ProductDto>>(products);
-            return Ok(productDtos);
+            var products = await _context.Products.ToListAsync();
+            return Ok(_mapper.Map<IEnumerable<ProductDto>>(products));
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ProductDto>> GetProductById(int id)
         {
-            var product = await _appDbContext.Products.FindAsync(id);
-            if (product == null)
-                return NotFound($"Product with id {id} not found.");
-
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
             return Ok(_mapper.Map<ProductDto>(product));
+
         }
 
         [HttpPost]
-        public async Task<ActionResult<CreateProductDto>> CreateProduct(CreateProductDto createProductDto)
+        public async Task<ActionResult<ProductDto>> CreateProduct(ProductDto  productDto)
         {
-            var product = _mapper.Map<Product>(createProductDto);
-
-            await _appDbContext.Products.AddAsync(product);
-            await _appDbContext.SaveChangesAsync();
-
-            var createdDto = _mapper.Map<ProductDto>(product);
-            return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, createdDto);
+            var product = _mapper.Map<Product>(productDto);
+            _context.Products.Add(product);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetProductById), new { id = product.Id }, _mapper.Map<ProductDto>(product));
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, ProductDto productDto)
+        public async Task<IActionResult> UpdateProduct(int id, ProductDto  productDto)
         {
-            var existingProduct = await _appDbContext.Products.FindAsync(id);
-            if (existingProduct == null)
-                return NotFound($"Product with id {id} not found.");
+            if (id != productDto.Id) return BadRequest();
 
-            _mapper.Map(productDto, existingProduct);
-            await _appDbContext.SaveChangesAsync();
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
 
+            _mapper.Map(productDto, product);
+            await _context.SaveChangesAsync();
+            
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var productToDelete = await _appDbContext.Products.FindAsync(id);
-            if (productToDelete == null)
-                return NotFound($"Product with id {id} not found.");
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
 
-            _appDbContext.Products.Remove(productToDelete);
-            await _appDbContext.SaveChangesAsync();
-
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }
