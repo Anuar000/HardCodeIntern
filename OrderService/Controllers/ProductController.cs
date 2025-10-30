@@ -8,7 +8,7 @@ using OrderService.Models.DTOs;
 namespace OrderService.Controllers
 {
     [ApiController]
-    [Route("api/[controller]/[action]")]
+    [Route("api/[controller]")]
     public class ProductController : ControllerBase
     {
         private readonly AppDbContext _context;
