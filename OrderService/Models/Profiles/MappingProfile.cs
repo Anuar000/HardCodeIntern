@@ -7,15 +7,28 @@ namespace OrderService.Models.Profiles
     {
         public MappingProfile() 
         {
-            // Product
-            CreateMap<Product, ProductDto>().ReverseMap();
+            // Product → ProductDto
+            CreateMap<Product, ProductDto>();
+            CreateMap<ProductDto, Product>();
 
-            // OrderItem
-            CreateMap<OrderItem, OrderItemDto>().ReverseMap();
+            // OrderItem → OrderItemDto
+            CreateMap<OrderItem, OrderItemDto>();
+            CreateMap<OrderItemDto, OrderItem>();
 
-            // Order
-            CreateMap<Order, OrderDto>().ReverseMap();
-            CreateMap<Order, CreateOrderDto>().ReverseMap();
+            // OrderItemCreateDto → OrderItem
+            CreateMap<OrderItemCreateDto, OrderItem>();
+
+            // Order → OrderDto
+            CreateMap<Order, OrderDto>();
+            CreateMap<OrderDto, Order>();
+
+            // Order → OrderCreateDto
+            CreateMap<Order, OrderCreateDto>();
+            CreateMap<OrderCreateDto, Order>();
+
+            // Order → OrderUpdateDto
+            CreateMap<Order, OrderUpdateDto>();
+            CreateMap<OrderUpdateDto, Order>();
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using OrderService.Models.DTOs;
 
-public class CreateOrderDto
+public class OrderCreateDto
 {
     public string CustomerName { get; set; } = string.Empty;
-    public List<OrderItemDto> OrderItems { get; set; } = new();
+    public List<OrderItemCreateDto> OrderItems { get; set; } = new();
 }

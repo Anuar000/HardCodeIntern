@@ -12,7 +12,7 @@ public class AppDbContext : DbContext
     
     public DbSet<OrderItem> OrderItems { get; set; }
     
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    /*protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
@@ -45,5 +45,5 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(p => p.Id);
         });
-    }
+    }*/
 }

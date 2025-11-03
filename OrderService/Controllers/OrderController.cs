@@ -1,9 +1,6 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using OrderService.Data;
-using OrderService.Models;
 using OrderService.Models.DTOs;
+using OrderService.Services;
 
 namespace OrderService.Controllers
 {
@@ -11,93 +8,60 @@ namespace OrderService.Controllers
     [Route("api/[controller]")]
     public class OrderController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly OrdersService _ordersService;
 
-        public OrderController(AppDbContext context, IMapper mapper)
+        public OrderController(OrdersService ordersService)
         {
-            _context = context;
-            _mapper = mapper;
+            _ordersService = ordersService;
         }
 
-        // GET: api/order/getorders
         [HttpGet]
         public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders()
         {
-            var orders = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .ToListAsync();
-
-            return Ok(_mapper.Map<IEnumerable<OrderDto>>(orders));
+            var orders = await _ordersService.GetAllOrdersAsync();
+            return Ok(orders);
         }
 
-        // GET: api/order/getorderbyid/5
         [HttpGet("{id}")]
         public async Task<ActionResult<OrderDto>> GetOrderById(int id)
         {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == id);
-
-            if (order == null) return NotFound();
-
-            return Ok(_mapper.Map<OrderDto>(order));
-        }
-
-        // POST: api/order/createorder
-        [HttpPost]
-        public async Task<ActionResult<OrderDto>> CreateOrder(CreateOrderDto orderDto)
-        {
-            var order = _mapper.Map<Order>(orderDto);
-            order.OrderDate = DateTime.UtcNow;
-
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
-
-            var result = _mapper.Map<OrderDto>(order);
-            return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, result);
-        }
-
-        // PUT: api/order/updateorder
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateOrder(int id, CreateOrderDto createOrderDto)
-        {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.Id == id);
-
+            var order = await _ordersService.GetOrderByIdAsync(id);
             if (order == null)
                 return NotFound();
+            return Ok(order);
+        }
 
-            // Обновляем данные заказа
-            order.CustomerName = createOrderDto.CustomerName;
+        [HttpPost]
+        public async Task<IActionResult> CreateOrder(OrderCreateDto orderCreateDto)
+        {
+            var result = await _ordersService.CreateOrderAsync(orderCreateDto);
+            if (!result.IsSuccess)
+                return BadRequest(result.ErrorMessage);
 
-            // Удаляем старые позиции
-            _context.OrderItems.RemoveRange(order.OrderItems);
+            return Ok();
+        }
 
-            // Добавляем новые позиции
-            order.OrderItems = createOrderDto.OrderItems.Select(i => new OrderItem
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateOrder(int id, OrderUpdateDto orderUpdateDto)
+        {
+            var result = await _ordersService.UpdateOrderAsync(id, orderUpdateDto);
+            if (!result.IsSuccess)
             {
-                ProductId = i.ProductId,
-                Quantity = i.Quantity,
-            }).ToList();
-
-            await _context.SaveChangesAsync();
+                if (result.ErrorMessage == "Order not found")
+                    return NotFound();
+                return BadRequest(result.ErrorMessage);
+            }
 
             return NoContent();
         }
 
-        // DELETE: api/order/deleteorder/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteOrder(int id)
         {
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null) return NotFound();
+            var success = await _ordersService.DeleteOrderAsync(id);
+            if (!success)
+                return NotFound();
 
-            _context.Orders.Remove(order);
-            await _context.SaveChangesAsync();
             return NoContent();
         }
     }
