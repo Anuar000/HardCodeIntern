@@ -1,11 +1,30 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OrderService.Data;
+using OrderService.Events;
 using OrderService.Models.Profiles;
 using OrderService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Добавляем MassTransit
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<OrderCreatedConsumer>();
+    // Конфигурация RabbitMQ
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+
+        // Автоматическая конфигурация endpoints
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

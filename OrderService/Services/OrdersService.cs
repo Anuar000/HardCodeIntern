@@ -1,6 +1,8 @@
 using AutoMapper;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
+using OrderService.Events;
 using OrderService.Models;
 using OrderService.Models.DTOs;
 
@@ -10,11 +12,13 @@ namespace OrderService.Services
     {
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
+        private readonly IPublishEndpoint _publishEndpoint;
 
-        public OrdersService(AppDbContext context, IMapper mapper)
+        public OrdersService(AppDbContext context, IMapper mapper, IPublishEndpoint publishEndpoint)
         {
             _context = context;
             _mapper = mapper;
+            _publishEndpoint = publishEndpoint;
         }
 
         public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
@@ -50,6 +54,17 @@ namespace OrderService.Services
 
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
+            
+            // 🔹 Отправляем событие
+            var orderEvent = new OrderCreatedEvent
+            {
+                OrderId = order.Id,
+                CustomerName = order.CustomerName,
+                OrderDate = order.OrderDate
+            };
+
+            await _publishEndpoint.Publish(orderEvent);
+            
             return (true, null);
         }
 
