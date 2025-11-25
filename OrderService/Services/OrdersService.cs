@@ -1,8 +1,8 @@
 using AutoMapper;
+using Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
-using OrderService.Events;
 using OrderService.Models;
 using OrderService.Models.DTOs;
 
@@ -55,7 +55,7 @@ namespace OrderService.Services
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
             
-            // 🔹 Отправляем событие
+            // Отправляем событие
             var orderEvent = new OrderCreatedEvent
             {
                 OrderId = order.Id,
