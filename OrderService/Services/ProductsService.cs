@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
+using OrderService.Exceptions;
 using OrderService.Models;
 using OrderService.Models.DTOs;
 
@@ -26,7 +27,11 @@ namespace OrderService.Services
         public async Task<ProductDto?> GetProductByIdAsync(int id)
         {
             var product = await _context.Products.FindAsync(id);
-            return product == null ? null : _mapper.Map<ProductDto>(product);
+            
+            if (product == null)
+                throw new NotFoundException($"Product with id {id} was not found");
+            
+            return _mapper.Map<ProductDto>(product);
         }
 
         public async Task<ProductDto> CreateProductAsync(ProductDto productDto)
@@ -38,30 +43,29 @@ namespace OrderService.Services
             return _mapper.Map<ProductDto>(product);
         }
 
-        public async Task<(bool IsSuccess, string? ErrorMessage)> UpdateProductAsync(int id, ProductDto productDto)
+        public async Task UpdateProductAsync(int id, ProductDto productDto)
         {
             if (id != productDto.Id)
-                return (false, "ID mismatch");
+                throw new BusinessException("ID mismatch");
 
             var product = await _context.Products.FindAsync(id);
+            
             if (product == null)
-                return (false, "Product not found");
+                throw new NotFoundException($"Product with id {id} was not found");
 
             _mapper.Map(productDto, product);
             await _context.SaveChangesAsync();
-
-            return (true, null);
         }
 
-        public async Task<bool> DeleteProductAsync(int id)
+        public async Task DeleteProductAsync(int id)
         {
             var product = await _context.Products.FindAsync(id);
+            
             if (product == null)
-                return false;
+                throw new NotFoundException($"Product with id {id} was not found");
 
             _context.Products.Remove(product);
             await _context.SaveChangesAsync();
-            return true;
         }
     }
 }

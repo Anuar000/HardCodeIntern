@@ -3,102 +3,98 @@ using Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
+using OrderService.Exceptions;
 using OrderService.Models;
 using OrderService.Models.DTOs;
 
-namespace OrderService.Services
+public class OrdersService
 {
-    public class OrdersService
+    private readonly AppDbContext _context;
+    private readonly IMapper _mapper;
+    private readonly IPublishEndpoint _publishEndpoint;
+
+    public OrdersService(AppDbContext context, IMapper mapper, IPublishEndpoint publishEndpoint)
     {
-        private readonly AppDbContext _context;
-        private readonly IMapper _mapper;
-        private readonly IPublishEndpoint _publishEndpoint;
+        _context = context;
+        _mapper = mapper;
+        _publishEndpoint = publishEndpoint;
+    }
 
-        public OrdersService(AppDbContext context, IMapper mapper, IPublishEndpoint publishEndpoint)
+    public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
+    {
+        var orders = await _context.Orders
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.Product)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<OrderDto>>(orders);
+    }
+
+    public async Task<OrderDto> GetOrderByIdAsync(int id)
+    {
+        var order = await _context.Orders
+            .Include(o => o.OrderItems)
+            .ThenInclude(oi => oi.Product)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null)
+            throw new NotFoundException($"Order with ID {id} not found");
+
+        return _mapper.Map<OrderDto>(order);
+    }
+
+    public async Task CreateOrderAsync(OrderCreateDto dto)
+    {
+        var order = _mapper.Map<Order>(dto);
+
+        foreach (var itemDto in dto.OrderItems)
         {
-            _context = context;
-            _mapper = mapper;
-            _publishEndpoint = publishEndpoint;
+            var product = await _context.Products.FindAsync(itemDto.ProductId);
+            if (product == null)
+                throw new NotFoundException($"Product with ID {itemDto.ProductId} not found");
         }
 
-        public async Task<IEnumerable<OrderDto>> GetAllOrdersAsync()
-        {
-            var orders = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .ToListAsync();
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
 
-            return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        var evt = new OrderCreatedEvent
+        {
+            OrderId = order.Id,
+            CustomerName = order.CustomerName,
+            OrderDate = order.OrderDate
+        };
+
+        await _publishEndpoint.Publish(evt);
+    }
+
+    public async Task UpdateOrderAsync(int id, OrderUpdateDto dto)
+    {
+        var order = await _context.Orders
+            .Include(o => o.OrderItems)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null)
+            throw new NotFoundException($"Order with ID {id} not found");
+
+        foreach (var itemDto in dto.OrderItems)
+        {
+            var product = await _context.Products.FindAsync(itemDto.ProductId);
+            if (product == null)
+                throw new NotFoundException($"Product with ID {itemDto.ProductId} not found");
         }
 
-        public async Task<OrderDto?> GetOrderByIdAsync(int id)
-        {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == id);
+        _mapper.Map(dto, order);
+        await _context.SaveChangesAsync();
+    }
 
-            return order == null ? null : _mapper.Map<OrderDto>(order);
-        }
+    public async Task DeleteOrderAsync(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
 
-        public async Task<(bool IsSuccess, string? ErrorMessage)> CreateOrderAsync(OrderCreateDto orderCreateDto)
-        {
-            var order = _mapper.Map<Order>(orderCreateDto);
+        if (order == null)
+            throw new NotFoundException($"Order with ID {id} not found");
 
-            foreach (var itemDto in orderCreateDto.OrderItems)
-            {
-                var product = await _context.Products.FindAsync(itemDto.ProductId);
-                if (product == null)
-                    return (false, $"Product with ID {itemDto.ProductId} not found");
-            }
-
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
-            
-            // Отправляем событие
-            var orderEvent = new OrderCreatedEvent
-            {
-                OrderId = order.Id,
-                CustomerName = order.CustomerName,
-                OrderDate = order.OrderDate
-            };
-
-            await _publishEndpoint.Publish(orderEvent);
-            
-            return (true, null);
-        }
-
-        public async Task<(bool IsSuccess, string? ErrorMessage)> UpdateOrderAsync(int id, OrderUpdateDto orderUpdateDto)
-        {
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.Id == id);
-
-            if (order == null)
-                return (false, "Order not found");
-
-            _mapper.Map(orderUpdateDto, order);
-
-            foreach (var itemDto in orderUpdateDto.OrderItems)
-            {
-                var product = await _context.Products.FindAsync(itemDto.ProductId);
-                if (product == null)
-                    return (false, $"Product with ID {itemDto.ProductId} not found");
-            }
-
-            await _context.SaveChangesAsync();
-            return (true, null);
-        }
-
-        public async Task<bool> DeleteOrderAsync(int id)
-        {
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null)
-                return false;
-
-            _context.Orders.Remove(order);
-            await _context.SaveChangesAsync();
-            return true;
-        }
+        _context.Orders.Remove(order);
+        await _context.SaveChangesAsync();
     }
 }

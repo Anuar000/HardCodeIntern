@@ -40,27 +40,15 @@ namespace OrderService.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, ProductDto productDto)
+        public async Task UpdateProduct(int id, ProductDto productDto)
         {
-            var result = await _productsService.UpdateProductAsync(id, productDto);
-            if (!result.IsSuccess)
-            {
-                if (result.ErrorMessage == "Product not found")
-                    return NotFound();
-                return BadRequest(result.ErrorMessage);
-            }
-
-            return NoContent();
+            await _productsService.UpdateProductAsync(id, productDto);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProduct(int id)
+        public async Task DeleteProduct(int id)
         {
-            var success = await _productsService.DeleteProductAsync(id);
-            if (!success)
-                return NotFound();
-
-            return NoContent();
+            await _productsService.DeleteProductAsync(id);
         }
     }
 }
