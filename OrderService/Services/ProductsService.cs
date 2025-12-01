@@ -2,12 +2,13 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
 using OrderService.Exceptions;
+using OrderService.Interfaces;
 using OrderService.Models;
 using OrderService.Models.DTOs;
 
 namespace OrderService.Services
 {
-    public class ProductsService
+    public class ProductsService : IProductsService
     {
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;
@@ -34,13 +35,11 @@ namespace OrderService.Services
             return _mapper.Map<ProductDto>(product);
         }
 
-        public async Task<ProductDto> CreateProductAsync(ProductDto productDto)
+        public async Task CreateProductAsync(ProductDto productDto)
         {
             var product = _mapper.Map<Product>(productDto);
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
-
-            return _mapper.Map<ProductDto>(product);
         }
 
         public async Task UpdateProductAsync(int id, ProductDto productDto)

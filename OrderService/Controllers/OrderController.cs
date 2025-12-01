@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using OrderService.Interfaces;
 using OrderService.Models.DTOs;
 using OrderService.Services;
 
@@ -8,9 +9,9 @@ namespace OrderService.Controllers
     [Route("api/[controller]")]
     public class OrderController : ControllerBase
     {
-        private readonly OrdersService _ordersService;
+        private readonly IOrdersService _ordersService;
 
-        public OrderController(OrdersService ordersService)
+        public OrderController(IOrdersService ordersService)
         {
             _ordersService = ordersService;
         }

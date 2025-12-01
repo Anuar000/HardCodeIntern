@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using OrderService.Interfaces;
 using OrderService.Models.DTOs;
 using OrderService.Services;
 
@@ -8,18 +9,17 @@ namespace OrderService.Controllers
     [Route("api/[controller]")]
     public class ProductController : ControllerBase
     {
-        private readonly ProductsService _productsService;
+        private readonly IProductsService _productsService;
 
-        public ProductController(ProductsService productsService)
+        public ProductController(IProductsService productsService)
         {
             _productsService = productsService;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProducts()
+        public async Task<IEnumerable<ProductDto>> GetProducts()
         {
-            var products = await _productsService.GetAllProductsAsync();
-            return Ok(products);
+            return await _productsService.GetAllProductsAsync();
         }
 
         [HttpGet("{id}")]
@@ -33,10 +33,9 @@ namespace OrderService.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ProductDto>> CreateProduct(ProductDto productDto)
-        {
-            var created = await _productsService.CreateProductAsync(productDto);
-            return Ok(created);
+        public async Task CreateProduct(ProductDto productDto)
+        { 
+            await _productsService.CreateProductAsync(productDto);
         }
 
         [HttpPut("{id}")]

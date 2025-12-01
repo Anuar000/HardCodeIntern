@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OrderService.Data;
+using OrderService.Interfaces;
 using OrderService.Middlewares;
 using OrderService.Models.Profiles;
 using OrderService.Services;
@@ -32,8 +33,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<OrdersService>();
-builder.Services.AddScoped<ProductsService>();
+builder.Services.AddScoped<IOrdersService, OrdersService>();
+builder.Services.AddScoped<IProductsService, ProductsService>();
 
 builder.Services.AddAutoMapper(cfg => {
     cfg.AddMaps(typeof(MappingProfile).Assembly);

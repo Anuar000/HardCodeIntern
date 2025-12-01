@@ -4,10 +4,11 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
 using OrderService.Exceptions;
+using OrderService.Interfaces;
 using OrderService.Models;
 using OrderService.Models.DTOs;
 
-public class OrdersService
+public class OrdersService : IOrdersService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
